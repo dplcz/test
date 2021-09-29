@@ -2,45 +2,10 @@ import requests
 import re
 from selenium import webdriver
 from scrapy import Selector
-import pymysql.cursors
 import time
+from peewee import Database, TextField, MySQLDatabase, Model, IntegerField
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
-from peewee import MySQLDatabase, Model, TextField
-
-db = MySQLDatabase('spider', host='192.168.31.21', port=3306, user='dp', password='dp20020620')
-# 'spider', host='localhost', port=3306, user='root', password='dp20020620'
-
-class BaseModel(Model):
-    class Meta:
-        database = db
-        table_name = 'spider'
-
-
-class Data(BaseModel):
-    url = TextField(default='')
-    content = TextField(default='')
-    primary = TextField(default='')
-    needs = TextField(default='')
-    place = TextField(default='')
-    company = TextField(default='')
-    welfare = TextField(default='')
-
-
-connection = pymysql.connect(host='192.168.31.21',
-                             user='dp',
-                             password='dp20020620',
-                             database='spider',
-                             charset='utf8mb4',
-                             cursorclass=pymysql.cursors.DictCursor)
-'''
-host='localhost',
-user='root',
-password='dp20020620',
-database='spider',
-charset='utf8mb4',
-cursorclass=pymysql.cursors.DictCursor
-'''
 
 city_url = 'https://www.zhipin.com/wapi/zpgeek/common/data/citysites.json'
 res = requests.get(city_url).text
@@ -60,15 +25,29 @@ while True:
         name = input('未找到相关城市，请重新输入:')
 
 search = input('输入要搜索的职位:')
-url_temp = 'https://www.zhipin.com/c{}/?query={}'.format(data_dict[name], search)
-# print(url_temp)
 
-chrome_options = Options()
-chrome_options.add_argument('--headless')
-chrome_options.add_argument('--disable-gpu')
-chrome_options.add_argument(
-    'user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36')
-begin_time = time.time()
+db = MySQLDatabase('spider', host='localhost', port=3306, user='root', password='dp20020620')
+
+
+def create_name(model_class):
+    return name + search
+
+
+class BaseModel(Model):
+    class Meta:
+        database = db
+        table_function = create_name
+
+
+class Data(BaseModel):
+    id = IntegerField(primary_key=True)
+    url = TextField(default='')
+    content = TextField(default='')
+    primary = TextField(default='')
+    needs = TextField(default='')
+    place = TextField(default='')
+    company = TextField(default='')
+    welfare = TextField(default='')
 
 
 def xpath_get_data(sel, xpath):
@@ -78,8 +57,38 @@ def xpath_get_data(sel, xpath):
         return ''
 
 
+def save_to_mysql(url, content, primary, need, place, company, welfare):
+    global id
+    data.id = id
+    data.url = url
+    data.content = content
+    data.primary = primary
+    data.needs = need
+    data.place = place
+    data.company = company
+    data.welfare = welfare
+    id_exist = data.select().where(Data.id == data.id)
+    if id_exist:
+        data.save()
+    else:
+        data.save(force_insert=True)
+    id += 1
+
+
 if __name__ == '__main__':
-    db.create_tables([Data])
+    data = Data()
+    data.create_table()
+    url_temp = 'https://www.zhipin.com/c{}/?query={}'.format(data_dict[name], search)
+    # print(url_temp)
+
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument(
+        'user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36')
+    begin_time = time.time()
+    id = 1
+
     url_temp_head = 'https://www.zhipin.com'
     tag = []
     StopFlag = True
@@ -103,28 +112,29 @@ if __name__ == '__main__':
         welfare = []
         if i == 1:
             for k in range(1, 31):
-                url.append(xpath_get_data(sel,
-                                          '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span[1]/a/@href'.format(
-                                              k)))
-                content.append(xpath_get_data(sel,
-                                              '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span['
-                                              '1]/a/text()'.format(
-                                                  k)))
-                primary.append(xpath_get_data(sel,
-                                              '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[1]/div/div[2]/span/text()'.format(
-                                                  k)))
-                needs.append(
-                    xpath_get_data(sel,
-                                   '//*[@id="main"]/div/div[3]/ul/li/div/div[1]/div[1]/div/div[2]/p/text()'.format(k)))
-                place.append(xpath_get_data(sel,
-                                            '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span['
-                                            '2]/span/text()'.format(
-                                                k)))
-                company.append(
-                    xpath_get_data(sel,
-                                   '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[2]/div/h3/a/text()'.format(k)))
-                welfare.append(
-                    xpath_get_data(sel, '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[2]/div[2]/text()'.format(k)))
+                url = xpath_get_data(sel,
+                                     '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span[1]/a/@href'.format(
+                                         k))
+                content = xpath_get_data(sel,
+                                         '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span['
+                                         '1]/a/text()'.format(
+                                             k))
+                primary = xpath_get_data(sel,
+                                         '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[1]/div/div[2]/span/text()'.format(
+                                             k))
+                needs = xpath_get_data(sel,
+                                       '//*[@id="main"]/div/div[3]/ul/li/div/div[1]/div[1]/div/div[2]/p/text()'.format(
+                                           k))
+                place = xpath_get_data(sel,
+                                       '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span['
+                                       '2]/span/text()'.format(
+                                           k))
+                company = xpath_get_data(sel,
+                                         '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[2]/div/h3/a/text()'.format(
+                                             k))
+                welfare = xpath_get_data(sel, '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[2]/div[2]/text()'.format(k))
+                save_to_mysql(url_temp_head + url, content, primary, needs, place, company, welfare)
+
         else:
             for k in range(1, 31):
                 temp_url = xpath_get_data(sel,
@@ -133,28 +143,29 @@ if __name__ == '__main__':
                 if len(temp_url) == 0:
                     StopFlag = False
                     break
-                url.append(temp_url)
-                content.append(xpath_get_data(sel,
-                                              '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span['
-                                              '1]/a/text()'.format(
-                                                  k)))
-                primary.append(xpath_get_data(sel,
-                                              '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[1]/div/div[2]/span/text()'.format(
-                                                  k)))
-                needs.append(
-                    xpath_get_data(sel,
-                                   '//*[@id="main"]/div/div[2]/ul/li/div/div[1]/div[1]/div/div[2]/p/text()'.format(k)))
-                place.append(xpath_get_data(sel,
-                                            '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span['
-                                            '2]/span/text()'.format(
-                                                k)))
-                company.append(
-                    xpath_get_data(sel,
-                                   '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[2]/div/h3/a/text()'.format(k)))
-                welfare.append(
-                    xpath_get_data(sel, '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[2]/div[2]/text()'.format(k)))
-        for n in range(0, len(url)):
-            tag.append([url_temp_head + url[n], content[n], primary[n], needs[n], place[n], company[n], welfare[n]])
+                url = temp_url
+                content = xpath_get_data(sel,
+                                         '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span['
+                                         '1]/a/text()'.format(
+                                             k))
+                primary = xpath_get_data(sel,
+                                         '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[1]/div/div[2]/span/text()'.format(
+                                             k))
+                needs = xpath_get_data(sel,
+                                       '//*[@id="main"]/div/div[2]/ul/li/div/div[1]/div[1]/div/div[2]/p/text()'.format(
+                                           k))
+                place = xpath_get_data(sel,
+                                       '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span['
+                                       '2]/span/text()'.format(
+                                           k))
+                company = xpath_get_data(sel,
+                                         '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[2]/div/h3/a/text()'.format(
+                                             k))
+                welfare = xpath_get_data(sel, '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[2]/div[2]/text()'.format(k))
+                save_to_mysql(url_temp_head + url, content, primary, needs, place, company, welfare)
+        if StopFlag == False:
+            print('complete {}'.format(i))
+            break
         try:
             click_ele = browser.find_element_by_xpath('//*[@class="next"]')
             click_ele.click()
@@ -166,13 +177,5 @@ if __name__ == '__main__':
         i += 1
     browser.close()
 
-    with connection:
-        with connection.cursor() as cursor:
-            sql = "INSERT INTO `data` (`url`, `content`, `primary`,`needs`,`place`,`company`,`welfare`) VALUES (%s, %s, " \
-                  "%s, %s, %s, %s, %s) "
-            for i in tag:
-                cursor.execute(sql, (i[0], i[1], i[2], i[3], i[4], i[5], i[6]))
-                connection.commit()
-            cursor.close()
-            end_time = time.time()
-            print('runtime:{}'.format(end_time - begin_time))
+    end_time = time.time()
+    print('runtime:{}'.format(end_time - begin_time))
