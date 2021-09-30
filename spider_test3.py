@@ -26,7 +26,7 @@ while True:
 
 search = input('输入要搜索的职位:')
 
-db = MySQLDatabase('spider', host='localhost', port=3306, user='root', password='dp20020620')
+db = MySQLDatabase('spider', host='192.168.31.21', port=3306, user='dp', password='dp20020620')
 
 
 def create_name(model_class):
