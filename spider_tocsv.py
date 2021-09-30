@@ -6,6 +6,8 @@ import time
 from peewee import Database, TextField, MySQLDatabase, Model, IntegerField
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options
+import pandas as pd
+import csv
 
 city_url = 'https://www.zhipin.com/wapi/zpgeek/common/data/citysites.json'
 res = requests.get(city_url).text
@@ -26,29 +28,6 @@ while True:
 
 search = input('输入要搜索的职位:')
 
-db = MySQLDatabase('spider', host='localhost', port=3306, user='root', password='dp20020620')
-
-
-def create_name(model_class):
-    return name + search
-
-
-class BaseModel(Model):
-    class Meta:
-        database = db
-        table_function = create_name
-
-
-class Data(BaseModel):
-    id = IntegerField(primary_key=True)
-    url = TextField(default='')
-    content = TextField(default='')
-    primary = TextField(default='')
-    needs = TextField(default='')
-    place = TextField(default='')
-    company = TextField(default='')
-    welfare = TextField(default='')
-
 
 def xpath_get_data(sel, xpath):
     if len(sel.xpath(xpath)) != 0:
@@ -57,27 +36,7 @@ def xpath_get_data(sel, xpath):
         return ''
 
 
-def save_to_mysql(url, content, primary, need, place, company, welfare):
-    global id
-    data.id = id
-    data.url = url
-    data.content = content
-    data.primary = primary
-    data.needs = need
-    data.place = place
-    data.company = company
-    data.welfare = welfare
-    id_exist = data.select().where(Data.id == data.id)
-    if id_exist:
-        data.save()
-    else:
-        data.save(force_insert=True)
-    id += 1
-
-
 if __name__ == '__main__':
-    data = Data()
-    data.create_table()
     url_temp = 'https://www.zhipin.com/c{}/?query={}'.format(data_dict[name], search)
     # print(url_temp)
 
@@ -133,7 +92,7 @@ if __name__ == '__main__':
                                          '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[2]/div/h3/a/text()'.format(
                                              k))
                 welfare = xpath_get_data(sel, '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[2]/div[2]/text()'.format(k))
-                save_to_mysql(url_temp_head + url, content, primary, needs, place, company, welfare)
+                tag.append([url_temp_head + url, content, primary, needs, place, company, welfare])
 
         else:
             for k in range(1, 31):
@@ -162,7 +121,7 @@ if __name__ == '__main__':
                                          '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[2]/div/h3/a/text()'.format(
                                              k))
                 welfare = xpath_get_data(sel, '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[2]/div[2]/text()'.format(k))
-                save_to_mysql(url_temp_head + url, content, primary, needs, place, company, welfare)
+                tag.append([url_temp_head + url, content, primary, needs, place, company, welfare])
         if StopFlag == False:
             print('complete {}'.format(i))
             break
@@ -176,6 +135,8 @@ if __name__ == '__main__':
             print('complete {}'.format(i))
         i += 1
     browser.close()
-
+    df = pd.DataFrame(data=tag, columns=['网址', '职位', '薪水', '需求', '地点', '公司', '福利'])
+    df = df.set_index('网址')
+    df.to_csv('{}{}.csv'.format(name, search), index=True)
     end_time = time.time()
     print('runtime:{}'.format(end_time - begin_time))
