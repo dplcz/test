@@ -13,7 +13,6 @@ chrome_options.add_argument('--headless')
 chrome_options.add_argument('--disable-gpu')
 chrome_options.add_argument(
     'user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36')
-begin_time = time.time()
 city_url = 'https://www.zhipin.com/wapi/zpgeek/common/data/citysites.json'
 res = requests.get(city_url).text
 pattern = re.compile(r'"name":"(.*?)","code":(.*?),')
@@ -36,7 +35,7 @@ url_temp = 'https://www.zhipin.com/c{}/?query={}'.format(data_dict[name], search
 url_temp_head = 'https://www.zhipin.com'
 id = 1
 page_source_list = []
-count_data = 0
+end_num = 0
 Lock = Lock()
 
 
@@ -45,39 +44,41 @@ class ParsePageThread(Thread):
         browser = webdriver.Chrome(executable_path='E:\py_code\webdriver/chromedriver.exe', options=chrome_options)
         browser.implicitly_wait(10)
         count = 1
+        global end_num
         if count == 1:
             time.sleep(1)
         browser.get(url_temp)
         while 1:
             page_source_list.append(browser.page_source)
-            try:
+            sel_temp = Selector(text=browser.page_source)
+            if len(sel_temp.xpath('//*[@class="next"]')):
                 click_ele = browser.find_element_by_xpath('//*[@class="next"]')
                 click_ele.click()
                 normal_window = browser.current_window_handle
-            except NoSuchElementException as e:
-                # StopFlag = False
+                print('get page source {}'.format(count))
+            else:
+                print('get page source {}'.format(count))
                 break
-            print('get page source {}'.format(count))
             count += 1
+        end_num = count
 
 
 class ParseDataThread(Thread):
 
     def run(self):
-        global count_data, sel
+        global sel
         StopFlag = True
-        url = []
-        content = []
-        primary = []
-        needs = []
-        place = []
-        company = []
-        welfare = []
-        print(count_data)
+        # print(count_data)
+        count_data = 0
         while StopFlag:
+            count_num = 0
             try:
+                if count_num == 10:
+                    StopFlag = False
+                    break
                 sel = Selector(text=page_source_list.pop())
             except IndexError:
+                count_num += 1
                 continue
             if count_data == 0:
                 count_data += 1
@@ -107,12 +108,12 @@ class ParseDataThread(Thread):
                     save_to_mysql(url_temp_head + url, content, primary, needs, place, company, welfare)
 
             else:
+                count_data += 1
                 for k in range(1, 31):
                     temp_url = xpath_get_data(sel,
                                               '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[1]/div/div[1]/span[1]/a/@href'.format(
                                                   k))
                     if len(temp_url) == 0:
-                        StopFlag = False
                         break
                     url = temp_url
                     content = xpath_get_data(sel,
@@ -135,6 +136,8 @@ class ParseDataThread(Thread):
                     welfare = xpath_get_data(sel,
                                              '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[2]/div[2]/text()'.format(k))
                     save_to_mysql(url_temp_head + url, content, primary, needs, place, company, welfare)
+                if count_data == end_num:
+                    StopFlag = False
 
 
 def save_to_mysql(url, content, primary, need, place, company, welfare):
@@ -168,6 +171,7 @@ if __name__ == '__main__':
     data = Data()
     page_thread = ParsePageThread()
     data_thread = ParseDataThread()
+    begin_time = time.time()
     page_thread.start()
     data_thread.start()
 
