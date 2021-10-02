@@ -28,6 +28,8 @@ search = input('输入要搜索的职位:')
 
 db = MySQLDatabase('spider', host='localhost', port=3306, user='root', password='dp20020620')
 
+tag = []
+
 
 def create_name(model_class):
     return name + search
@@ -40,7 +42,6 @@ class BaseModel(Model):
 
 
 class Data(BaseModel):
-    id = IntegerField(primary_key=True)
     url = TextField(default='')
     content = TextField(default='')
     primary = TextField(default='')
@@ -133,7 +134,8 @@ if __name__ == '__main__':
                                          '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[1]/div[2]/div/h3/a/text()'.format(
                                              k))
                 welfare = xpath_get_data(sel, '//*[@id="main"]/div/div[3]/ul/li[{}]/div/div[2]/div[2]/text()'.format(k))
-                save_to_mysql(url_temp_head + url, content, primary, needs, place, company, welfare)
+                tag.append(Data(url=url_temp_head + url, content=content, primary=primary, needs=needs, place=place,
+                                company=company, welfare=welfare))
 
         else:
             for k in range(1, 31):
@@ -162,7 +164,8 @@ if __name__ == '__main__':
                                          '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[1]/div[2]/div/h3/a/text()'.format(
                                              k))
                 welfare = xpath_get_data(sel, '//*[@id="main"]/div/div[2]/ul/li[{}]/div/div[2]/div[2]/text()'.format(k))
-                save_to_mysql(url_temp_head + url, content, primary, needs, place, company, welfare)
+                tag.append(Data(url=url_temp_head + url, content=content, primary=primary, needs=needs, place=place,
+                                company=company, welfare=welfare))
         if StopFlag == False:
             print('complete {}'.format(i))
             break
@@ -176,6 +179,6 @@ if __name__ == '__main__':
             print('complete {}'.format(i))
         i += 1
     browser.close()
-
+    Data.bulk_create(tag)
     end_time = time.time()
     print('runtime:{}'.format(end_time - begin_time))
