@@ -7,11 +7,11 @@ import re
 
 chrome_options = Options()
 chrome_options.add_argument('--headless')
-chrome_options.add_argument('--disable-gpu')
+# chrome_options.add_argument('--disable-gpu')
 chrome_options.add_argument(
     'user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36')
 login_url = 'http://passport2.chaoxing.com/login?fid=&newversion=true&refer=http%3A%2F%2Fi.chaoxing.com'
-browser = webdriver.Chrome(executable_path='E:\py_code\webdriver/chromedriver.exe', options=chrome_options)
+browser = webdriver.Chrome(executable_path='E:\py_code\webdriver/chromedriver.exe')
 cookie_dict = {}
 
 
@@ -36,23 +36,41 @@ def play_video(url):
     browser.add_cookie(cookie_dict)
     browser.get(url)
     normal_window = browser.current_window_handle
-    browser.switch_to.frame(browser.find_element_by_id('iframe'))
-    ele_temp = browser.find_elements_by_tag_name('iframe')
-    browser.switch_to.frame(ele_temp[-1])
-
-    try:
-        browser.find_element_by_xpath('//*[@id="video"]/button').click()
-        time.sleep(1)
-        page_source = browser.page_source
-        sel = Selector(text=page_source)
-        begin_time = sel.re(r'<span class="vjs-current-time-display" aria-live="off">(.*?):.*?</span>')
-        sleep_time = sel.re(r'<span class="vjs-duration-display" aria-live="off">(.*?):(.*?)</span>')
-        time_temp = int(sleep_time[0]) * 60 + int(sleep_time[1]) + 30 - int(begin_time[0]) * 60
-        print(time_temp)
-        time.sleep(time_temp)
-    except NoSuchElementException:
-        pass
-    pass
+    while True:
+        global ele_temp
+        try:
+            time.sleep(1)
+            browser.switch_to.frame(browser.find_element_by_id('iframe'))
+            ele_temp = browser.find_elements_by_tag_name('iframe')
+            browser.switch_to.frame(ele_temp[-1])
+            browser.find_element_by_xpath('//*[@id="video"]/button').click()
+            time.sleep(1)
+            time_temp = 0
+            while time_temp <= 0:
+                page_source = browser.page_source
+                sel = Selector(text=page_source)
+                begin_time = sel.re(r'<span class="vjs-current-time-display" aria-live="off">(.*?):.*?</span>')
+                sleep_time = sel.re(r'<span class="vjs-duration-display" aria-live="off">(.*?):(.*?)</span>')
+                time_temp = int(sleep_time[0]) * 60 + int(sleep_time[1]) + 30 - int(begin_time[0]) * 60
+            print(time_temp)
+            browser.switch_to.parent_frame()
+            browser.switch_to.parent_frame()
+            time.sleep(time_temp)
+        except:
+            browser.switch_to.parent_frame()
+            if len(ele_temp) != 0:
+                browser.switch_to.parent_frame()
+            continue
+        finally:
+            time.sleep(1)
+            page_source = browser.page_source
+            sel = Selector(text=page_source)
+            try:
+                title = sel.xpath('//*[@id="mainid"]/h1/text()').extract()[0]
+                print('complete {}'.format(title))
+            except IndexError:
+                print('')
+            browser.find_element_by_xpath('//*[@class="orientationright "]').click()
 
 
 '''
