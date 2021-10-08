@@ -58,24 +58,6 @@ def xpath_get_data(sel, xpath):
         return ''
 
 
-def save_to_mysql(url, content, primary, need, place, company, welfare):
-    global id
-    data.id = id
-    data.url = url
-    data.content = content
-    data.primary = primary
-    data.needs = need
-    data.place = place
-    data.company = company
-    data.welfare = welfare
-    id_exist = data.select().where(Data.id == data.id)
-    if id_exist:
-        data.save()
-    else:
-        data.save(force_insert=True)
-    id += 1
-
-
 if __name__ == '__main__':
     data = Data()
     data.create_table()
