@@ -77,9 +77,9 @@ class ParsePageThread(Thread):
         browser.implicitly_wait(10)
         count = 1
         global end_num
+        browser.get(url_temp)
         if count == 1:
             time.sleep(1)
-        browser.get(url_temp)
         while 1:
             page_source_queue.put(browser.page_source)
             sel_temp = Selector(text=browser.page_source)
