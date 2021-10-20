@@ -19,7 +19,7 @@ default和null是否为True
 
 
 class Goods(BaseModel):
-    id = IntegerField(primary_key=True)
+    id = BigIntegerField(primary_key=True)
     name = CharField(max_length=500)
     # content = TextField(default='')
     price = FloatField(verbose_name='价格')
@@ -39,7 +39,7 @@ class Goods(BaseModel):
 
 
 class GoodsEvaluate(BaseModel):
-    id = CharField(primary_key=True)
+    id = IntegerField(primary_key=True)
     # 外键
     goods = ForeignKeyField(Goods, verbose_name='商品')
     user_head_url = CharField(verbose_name='用户头像')
@@ -55,6 +55,7 @@ class GoodsEvaluate(BaseModel):
 
 
 class GoodsEvaluateSummary(BaseModel):
+    tag_id = CharField(primary_key=True)
     goods = ForeignKeyField(Goods, verbose_name='商品')
     tag = CharField(max_length=20, verbose_name='标签')
     num = IntegerField(default=0, verbose_name='数量')
