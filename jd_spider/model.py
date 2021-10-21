@@ -1,5 +1,6 @@
 from peewee import *
 
+
 db = MySQLDatabase('spider', host='localhost', port=3306, user='root', password='dp20020620')
 
 
@@ -26,7 +27,7 @@ class Goods(BaseModel):
     # 供应商
     supplier = CharField(max_length=500, verbose_name='供应商')
     # verbose_name可以理解为注释
-    size_box = TextField(default='', verbose_name='规格和包装')
+    url = TextField(default='', verbose_name='网址')
     image_list = TextField(default='', verbose_name='商品轮播图')
 
     comment_num = CharField(default=0, verbose_name='评论数')
@@ -42,10 +43,10 @@ class GoodsEvaluate(BaseModel):
     id = IntegerField(primary_key=True)
     # 外键
     goods = ForeignKeyField(Goods, verbose_name='商品')
-    user_head_url = CharField(verbose_name='用户头像')
-    user_name = CharField(verbose_name='用户名')
-    good_info = CharField(max_length=500, verbose_name='购买商品信息')
-    evaluate_time = DateTimeField(verbose_name='评论时间')
+    user_head_url = CharField(default='', verbose_name='用户头像')
+    user_name = CharField(default='', verbose_name='用户名')
+    good_info = CharField(default='', max_length=500, verbose_name='购买商品信息')
+    evaluate_time = DateTimeField(default='', verbose_name='评论时间')
     content = TextField(default='', verbose_name='评论内容')
     star = IntegerField(default=0, verbose_name='评分')
     comment_num = IntegerField(default=0, verbose_name='评论数')
