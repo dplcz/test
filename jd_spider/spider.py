@@ -10,7 +10,6 @@ import get_cookie
 
 cookie = get_cookie.get_cookies('https://passport.jd.com/new/login.aspx')
 ua = UserAgent()
-id = 1
 
 
 def get_headers():
@@ -75,10 +74,7 @@ def pares_goods(goods_id):
     url_temp = 'https://item.jd.com/{}.html'.format(goods_id)
     html = requests.get(url_temp, headers=get_headers(), cookies=cookie).text
     sel = Selector(text=html)
-    # 规格包装
-    # temp = sel.xpath('//*[@id="detail"]/div[2]/div[2]/div[1]/div')
-    # for i in temp:
-    #     goods.size_box = ''.join(temp.xpath('./'))
+
     goods.id = goods_id
     # 删去字符串中的空格和换行符
     goods.name = ''.join(sel.xpath('//*[@class="sku-name"]/text()').extract()[0]).strip()
@@ -109,14 +105,15 @@ def pares_goods(goods_id):
     temp = ''
     while flag:
         try:
-            temp = requests.get(evaluate_url, headers=get_headers(), cookies=cookie, proxies=proxy).text
+            temp = requests.get(evaluate_url, headers=get_headers(), proxies=proxy, timeout=3).text
             if len(temp) != 0:
                 flag = False
             else:
                 time.sleep(1)
-                print('sleep 1s')
+                print('temp is []   sleep 1s')
                 proxy = get_proxy()
-        except ProxyError:
+        except ProxyError as e:
+            print(e)
             time.sleep(1)
             print('sleep 1s')
             proxy = get_proxy()
@@ -161,7 +158,6 @@ def pares_goods(goods_id):
         for num in range(0, int(max_page)):
             for i in comments:
                 goods_evaluate = {}
-                goods_evaluate['id'] = id
                 goods_evaluate['goods'] = goods
                 goods_evaluate['user_head_url'] = (
                         'https://' + get_comment_data(i, 'userImageUrl')) if get_comment_data(i,
@@ -185,24 +181,18 @@ def pares_goods(goods_id):
                     video_temp.append(get_comment_data(k, 'mainUrl'))
                 goods_evaluate['video_list'] = video_temp
                 comments_save.append(goods_evaluate)
-                # exist = goods_evaluate.select().where(goods_evaluate.id == GoodsEvaluate.id)
-                # if exist:
-                #     goods_evaluate.save()
-                # else:
-                #     goods_evaluate.save(force_insert=True)
-                id += 1
-            # print(num)
+
             if num == 0:
                 continue
             evaluate_url = 'https://club.jd.com/comment/productPageComments.action?productId={}&score=0&sortType=5&page={}&pageSize=10&isShadowSku=0&fold=1'.format(
                 goods_id, num)
             time.sleep(0.1)
-            temp = requests.get(evaluate_url, headers=get_headers(), cookies=cookie).text.encode(
+            temp = requests.get(evaluate_url, headers=get_headers(), timeout=3).text.encode(
                 'utf-8')
             if temp:
                 evaluate_json = json.loads(temp)
                 comments = evaluate_json['comments']
-        GoodsEvaluate.insert_many(comments_save[0:]).execute()
+        GoodsEvaluate.bulk_create(comments_save)
     else:
         print(temp)
     print('complete {}'.format(goods_id))
@@ -210,8 +200,6 @@ def pares_goods(goods_id):
 
 if __name__ == '__main__':
     goods = Goods()
-    # goods_evaluate = GoodsEvaluate()
-    # goods_evaluate = {}
     goods_evaluate_summary = GoodsEvaluateSummary()
     goods_id = get_goods_id()
     for i in goods_id:
