@@ -8,9 +8,9 @@ import pandas as pd
 from pandas import DataFrame
 from scrapy import Selector
 from fake_useragent import UserAgent
-import get_cookie
+# import get_cookie
 
-cookie = get_cookie.get_cookies('https://passport.jd.com/new/login.aspx')
+# cookie = get_cookie.get_cookies('https://passport.jd.com/new/login.aspx')
 ua = UserAgent()
 search = ''
 
@@ -39,7 +39,7 @@ def get_goods_id():
     goods_id = []
     for i in range(1, 3):
         url_temp = 'https://search.jd.com/Search?keyword={}&enc=utf-8&page={}'.format(search, i)
-        html = requests.get(url_temp, headers=get_headers(), cookies=cookie).text
+        html = requests.get(url_temp, headers=get_headers()).text
         sel = Selector(text=html)
 
         goods_temp = sel.xpath('//*[@id="J_goodsList"]/ul/li/div/div[1]/a/@href').extract()
@@ -85,7 +85,7 @@ def get_comment_tag(tag_id):
     temp = ''
     while flag:
         try:
-            temp = requests.get(url, headers=get_headers(), proxies=proxy).text
+            temp = requests.get(url, headers=get_headers(), proxies=proxy, timeout=3).text
             if len(temp) != 0:
                 flag = False
             else:
@@ -101,7 +101,7 @@ def get_comment_tag(tag_id):
     evaluate_json = json.loads(temp)
     statistics = evaluate_json['hotCommentTagStatistics']
     for i in statistics:
-        goods_evaluate_summary.append([tag_id, i['name'], i['count']])
+        goods_evaluate_summary.append([str(tag_id), i['name'], i['count']])
 
     t_list = []
     for i in range(1, 4):
@@ -114,19 +114,26 @@ def get_comment_tag(tag_id):
 
 def get_comment(goods_id, proxies, score):
     comment_dict = {3: goods_evaluate_good, 2: goods_evaluate_general, 1: goods_evaluate_poor}
-    url = 'https://club.jd.com/comment/productPageComments.action?productId={}&score={}&sortType=5&page=0&pageSize=10&isShadowSku=0&fold=1'.format(
+    url = 'https://club.jd.com/comment/skuProductPageComments.action?productId={}&score={}&sortType=5&page=0&pageSize=10&isShadowSku=0&fold=1'.format(
         goods_id, score)
     '''
     score = 3 good
     score = 2 general
     score = 1 poor
     '''
-    temp = requests.get(url, headers=get_headers(), proxies=proxies).text
+    temp = ''
+    while len(temp) == 0:
+        try:
+            temp = requests.get(url, headers=get_headers(), proxies=proxies, timeout=3).text
+        except ProxyError as e:
+            print(e)
+            time.sleep(1)
+            pass
     if temp:
         evaluate_json = json.loads(temp)
         comment = evaluate_json['comments']
         for i in comment:
-            id_temp = goods_id
+            id_temp = str(goods_id)
             user_name = get_comment_data(i, 'nickname')
             good_info = get_comment_data(i, 'productColor') + get_comment_data(i, 'productSize')
             evaluate_time = get_comment_data(i, 'creationTime')
@@ -141,6 +148,14 @@ def get_comment(goods_id, proxies, score):
             '''
 
 
+def get_comment_num(temp):
+    pattern = re.compile(r'\d+')
+    if '+' in temp and '万' not in temp:
+        return int(re.findall(pattern, temp)[0])
+    elif '万' in temp:
+        return int(re.findall(pattern, temp)[0]) * 10000
+
+
 def pares_goods(goods_id):
     global goods_price
     goods_supplier = ''
@@ -148,9 +163,9 @@ def pares_goods(goods_id):
 
     # 获取商品信息
     url_temp = 'https://item.jd.com/{}.html'.format(goods_id)
-    html = requests.get(url_temp, headers=get_headers(), cookies=cookie).text
+    html = requests.get(url_temp, headers=get_headers()).text
     sel = Selector(text=html)
-    goods_id_temp = goods_id
+    goods_id_temp = str(goods_id)
     # 删去字符串中的空格和换行符
     try:
         goods_name = ''.join(sel.xpath('//*[@class="sku-name"]/text()').extract()[0]).strip()
@@ -165,7 +180,7 @@ def pares_goods(goods_id):
 
     # 获取价格
     goods_info_temp = 'https://item-soa.jd.com/getWareBusiness?skuId={}'.format(goods_id)
-    goods_info_text = requests.get(goods_info_temp, headers=get_headers(), cookies=cookie).text.strip()
+    goods_info_text = requests.get(goods_info_temp, headers=get_headers()).text.strip()
     goods_info_json = json.loads(goods_info_text)
     if goods_info_json:
         # 价格
@@ -183,12 +198,12 @@ def pares_goods(goods_id):
         summary = evaluate_json['CommentsCount'][0]
         # 评论统计
 
-        goods_comment_num = summary['CommentCountStr']
-        goods_image_comment_num = summary['ShowCountStr']
-        goods_video_comment_num = summary['VideoCountStr']
-        goods_good_comment_num = summary['GoodCountStr']
-        goods_mid_comment_num = summary['GeneralCountStr']
-        goods_bad_comment_num = summary['PoorCountStr']
+        goods_comment_num = get_comment_num(summary['CommentCountStr'])
+        goods_image_comment_num = get_comment_num(summary['ShowCountStr'])
+        goods_video_comment_num = get_comment_num(summary['VideoCountStr'])
+        goods_good_comment_num = get_comment_num(summary['GoodCountStr'])
+        goods_mid_comment_num = get_comment_num(summary['GeneralCountStr'])
+        goods_bad_comment_num = get_comment_num(summary['PoorCountStr'])
         goods.append(
             [goods_id_temp, goods_name, goods_price, goods_supplier, goods_url, goods_image_list, goods_comment_num,
              goods_image_comment_num, goods_video_comment_num, goods_good_comment_num,
